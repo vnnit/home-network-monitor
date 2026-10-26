@@ -17,12 +17,11 @@ import concurrent.futures
 import zipfile
 
 PORT = 8765
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.4.1"
 GITHUB_REPO = "vnnit/home-network-monitor"
 BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
 
 def get_data_dir():
-    """Lay thu muc duoc phep ghi tren macOS, Windows va Linux"""
     if platform.system() == "Darwin":
         dir_path = os.path.expanduser("~/Library/Application Support/HomeNetworkMonitor")
     elif platform.system() == "Windows":
@@ -54,11 +53,10 @@ def save_devices(devices):
         print(f"[!] Error saving devices: {e}")
 
 def check_github_update():
-    """Kiem tra xem tren GitHub Releases co phien ban moi hon khong"""
     try:
         url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
         req = urllib.request.Request(url, headers={"User-Agent": "HomeNetworkMonitor-App"})
-        with urllib.request.urlopen(req, timeout=5) as response:
+        with urllib.request.urlopen(req, timeout=3) as response:
             data = json.loads(response.read().decode("utf-8"))
             tag = data.get("tag_name", "").lstrip("v")
             
@@ -89,7 +87,6 @@ def check_github_update():
         return {"current_version": APP_VERSION, "has_update": False, "error": str(e)}
 
 def perform_auto_update():
-    """Tu dong tai ban zip moi, giai nen de de len .app hien tai va khoi dong lai"""
     info = check_github_update()
     download_url = info.get("download_zip")
     if not download_url:
@@ -99,12 +96,10 @@ def perform_auto_update():
     os.makedirs(temp_dir, exist_ok=True)
     zip_path = os.path.join(temp_dir, "update.zip")
     
-    # Tai file
     req = urllib.request.Request(download_url, headers={"User-Agent": "HomeNetworkMonitor-App"})
     with urllib.request.urlopen(req, timeout=30) as resp, open(zip_path, 'wb') as out_f:
         out_f.write(resp.read())
     
-    # Giai nen
     extract_path = os.path.join(temp_dir, "extracted")
     if os.path.exists(extract_path):
         shutil.rmtree(extract_path, ignore_errors=True)
@@ -151,7 +146,6 @@ open "{current_app}"
     return {"success": True, "message": "Đang khởi động lại ứng dụng với phiên bản mới..."}
 
 def get_local_ip_base():
-    """Lay IP noi bo va dai mang LAN (vi du: 192.168.1)"""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(("8.8.8.8", 80))
@@ -169,17 +163,15 @@ def get_local_ip_base():
     return base, local_ip
 
 def quick_touch_ip(ip):
-    """Ket noi socket cuc nhanh (50ms) de kich thich ARP ma khong can chay lenh ping subprocess"""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(0.05)
+        s.settimeout(0.04)
         s.connect_ex((ip, 80))
         s.close()
     except Exception:
         pass
 
 def parse_arp_table():
-    """Doc bang ARP bang duong dan tuyet doi ho tro macOS va Windows"""
     devices = []
     arp_bin = shutil.which("arp") or ("/usr/sbin/arp" if os.path.exists("/usr/sbin/arp") else "arp")
     try:
@@ -225,7 +217,6 @@ def guess_device_type(ip, hostname, name):
     return "device"
 
 def scan_network_and_sync():
-    """Tu dong quet toan bo mang LAN va bo sung thiet bi moi vao devices.json"""
     base, local_ip = get_local_ip_base()
     all_ips = [f"{base}.{i}" for i in range(1, 255)]
     
@@ -247,7 +238,7 @@ def scan_network_and_sync():
     new_count = 0
     
     orig_timeout = socket.getdefaulttimeout()
-    socket.setdefaulttimeout(0.15)
+    socket.setdefaulttimeout(0.1)
     
     for item in found_in_arp:
         ip = item["ip"]
@@ -296,7 +287,7 @@ def ping_host_detail(ip, count=2):
     
     start_time = time.time()
     try:
-        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=2)
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=1.5)
         out = proc.stdout
         success = proc.returncode == 0
         
@@ -338,95 +329,72 @@ def ping_host_detail(ip, count=2):
         }
 
 def get_macos_wifi_info():
-    """Lay thong tin song Wi-Fi tren macOS"""
     if platform.system() != "Darwin":
         return {
             "platform": platform.system(),
             "ssid": "Home-WiFi-5G",
             "bssid": "00:11:22:33:44:55",
             "rssi": -52,
-            "noise": -90,
             "channel": "36 (5 GHz)",
-            "tx_rate": 866,
             "quality": "Rất Tốt"
         }
     
-    airport_path = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
-    data = {"ssid": "Wi-Fi Connected", "bssid": "--", "rssi": -65, "channel": "--", "tx_rate": 0, "quality": "Khá"}
-    
-    if os.path.exists(airport_path):
-        try:
-            res = subprocess.run([airport_path, "-I"], stdout=subprocess.PIPE, text=True, timeout=2)
-            for line in res.stdout.splitlines():
-                line = line.strip()
-                if ": " in line:
-                    k, v = line.split(": ", 1)
-                    if k == "SSID": data["ssid"] = v
-                    elif k == "BSSID": data["bssid"] = v
-                    elif k == "agrCtlRSSI": data["rssi"] = int(v)
-                    elif k == "agrCtlNoise": data["noise"] = int(v)
-                    elif k == "channel": data["channel"] = v
-                    elif k == "lastTxRate": data["tx_rate"] = int(v)
-        except Exception:
-            pass
-            
-    rssi = data.get("rssi", -65)
-    if rssi >= -55:
-        data["quality"] = "Xuất Sắc"
-    elif rssi >= -67:
-        data["quality"] = "Tốt (Ổn định)"
-    elif rssi >= -75:
-        data["quality"] = "Trung Bình (Suy hao qua sàn)"
-    else:
-        data["quality"] = "Yếu"
+    # Tren macOS thu lay bang networksetup (nhanh nhat & khong bi hang)
+    data = {"ssid": "Wi-Fi Connected", "bssid": "--", "rssi": -62, "channel": "--", "quality": "Tốt"}
+    try:
+        res = subprocess.run(["networksetup", "-getairportnetwork", "en0"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=1)
+        if "Current Wi-Fi Network:" in res.stdout:
+            data["ssid"] = res.stdout.split("Current Wi-Fi Network:")[1].strip()
+    except Exception:
+        pass
         
     return data
 
 class AppRequestHandler(http.server.SimpleHTTPRequestHandler):
+    def send_json(self, data, code=200):
+        body = json.dumps(data).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         url = urllib.parse.urlparse(self.path)
         path = url.path
         
         try:
             if path == "/":
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.end_headers()
                 html_path = os.path.join(BASE_DIR, "index.html")
                 if not os.path.exists(html_path):
                     html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
                 with open(html_path, "rb") as f:
-                    self.wfile.write(f.read())
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("Connection", "close")
+                self.end_headers()
+                self.wfile.write(content)
                 return
                 
             elif path == "/api/devices":
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
                 devices = load_devices()
-                self.wfile.write(json.dumps(devices).encode("utf-8"))
+                self.send_json(devices)
                 return
                 
             elif path == "/api/wifi-info":
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
                 info = get_macos_wifi_info()
-                self.wfile.write(json.dumps(info).encode("utf-8"))
+                self.send_json(info)
                 return
                 
             elif path == "/api/check-update":
                 info = check_github_update()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps(info).encode("utf-8"))
+                self.send_json(info)
                 return
         except Exception as e:
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+            self.send_json({"error": str(e)}, 500)
             return
             
         return super().do_GET()
@@ -441,18 +409,12 @@ class AppRequestHandler(http.server.SimpleHTTPRequestHandler):
         try:
             if path == "/api/scan-lan":
                 result = scan_network_and_sync()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps(result).encode("utf-8"))
+                self.send_json(result)
                 return
 
             elif path == "/api/perform-update":
                 result = perform_auto_update()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps(result).encode("utf-8"))
+                self.send_json(result)
                 return
 
             elif path == "/api/ping-all":
@@ -466,10 +428,7 @@ class AppRequestHandler(http.server.SimpleHTTPRequestHandler):
                 with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
                     list(executor.map(ping_task, devices))
                     
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps(results).encode("utf-8"))
+                self.send_json(results)
                 return
                 
             elif path == "/api/speedtest":
@@ -477,7 +436,7 @@ class AppRequestHandler(http.server.SimpleHTTPRequestHandler):
                     try:
                         import urllib.request
                         start = time.time()
-                        urllib.request.urlopen("https://speed.cloudflare.com/__down?bytes=10000000", timeout=6)
+                        urllib.request.urlopen("https://speed.cloudflare.com/__down?bytes=10000000", timeout=5)
                         duration = time.time() - start
                         mbps = round(80.0 / duration, 2)
                         return {"download": mbps, "upload": round(mbps * 0.45, 2), "ping": 12, "isp": "Local Fiber"}
@@ -485,19 +444,13 @@ class AppRequestHandler(http.server.SimpleHTTPRequestHandler):
                         return {"download": 125.4, "upload": 95.8, "ping": 8, "isp": "Local Fiber"}
 
                 res = run_quick_speedtest()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps(res).encode("utf-8"))
+                self.send_json(res)
                 return
 
             elif path == "/api/save-devices":
                 new_devices = json.loads(body)
                 save_devices(new_devices)
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+                self.send_json({"success": True})
                 return
 
             elif path == "/api/delete-device":
@@ -506,29 +459,26 @@ class AppRequestHandler(http.server.SimpleHTTPRequestHandler):
                 devices = load_devices()
                 devices = [d for d in devices if d["id"] != dev_id]
                 save_devices(devices)
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+                self.send_json({"success": True})
                 return
 
             self.send_response(404)
+            self.send_header("Connection", "close")
             self.end_headers()
         except Exception as e:
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+            self.send_json({"error": str(e)}, 500)
 
 def run_server():
-    server = socketserver.TCPServer(("127.0.0.1", PORT), AppRequestHandler)
-    print(f"[*] Home Network Monitor đang chạy tại: http://127.0.0.1:{PORT}")
+    # Su dung ThreadingHTTPServer de phuc vu da luong dong thoi, khong bao gio bi treo keep-alive
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), AppRequestHandler)
+    server.daemon_threads = True
+    print(f"[*] Threading server running on: http://127.0.0.1:{PORT}")
     server.serve_forever()
 
 if __name__ == "__main__":
     t = threading.Thread(target=run_server, daemon=True)
     t.start()
-    time.sleep(0.5)
+    time.sleep(0.4)
     
     url = f"http://127.0.0.1:{PORT}"
     

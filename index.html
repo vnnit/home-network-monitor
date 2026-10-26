@@ -156,21 +156,30 @@
       device: 'fa-solid fa-microchip text-gray-400'
     };
 
-    async function loadData() {
-      try {
-        const [devRes, wifiRes] = await Promise.all([
-          fetch('/api/devices'),
-          fetch('/api/wifi-info')
-        ]);
-        devices = await devRes.json();
-        const wifi = await wifiRes.json();
-        
-        renderSections();
-        renderWifi(wifi);
-        checkAppUpdate();
-      } catch (e) {
-        console.error("Load error:", e);
-      }
+    function loadData() {
+      // 1. Load danh sach thiet bi ngay lap tuc de khong bao gio bi trang man hinh
+      fetch('/api/devices')
+        .then(r => r.json())
+        .then(d => {
+          devices = d || [];
+          renderSections();
+        })
+        .catch(e => {
+          console.error("Device load error:", e);
+          renderSections();
+        });
+
+      // 2. Load thong tin Wi-Fi bat dong bo rieng biet
+      fetch('/api/wifi-info')
+        .then(r => r.json())
+        .then(renderWifi)
+        .catch(e => {
+          console.log("Wi-Fi info error:", e);
+          renderWifi({ ssid: 'Đã kết nối Wi-Fi', channel: '--', bssid: '--', quality: 'Tốt', rssi: -60 });
+        });
+
+      // 3. Kiem tra cap nhat chay ngam
+      checkAppUpdate();
     }
 
     async function checkAppUpdate() {
