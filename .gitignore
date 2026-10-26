@@ -12,3 +12,6 @@ venv/
 # Data
 uptime-kuma-data/
 speedtest-data/
+
+HomeNetworkMonitor-macOS-AppleSilicon.zip
+wait_and_release.ps1

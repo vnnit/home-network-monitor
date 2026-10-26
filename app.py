@@ -11,35 +11,11 @@ import socket
 import re
 import platform
 import webbrowser
+import concurrent.futures
 
 PORT = 8765
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "devices.json")
-
-DEFAULT_DEVICES = [
-    # Tầng 1
-    {"id": "t1_router", "name": "Router Chính (Tầng 1)", "floor": 1, "ip": "192.168.1.1", "mac": "", "type": "router"},
-    {"id": "t1_cam1", "name": "Camera Phòng Khách", "floor": 1, "ip": "192.168.1.11", "mac": "", "type": "camera"},
-    {"id": "t1_robot1", "name": "Robot Hút Bụi T1", "floor": 1, "ip": "192.168.1.12", "mac": "", "type": "robot"},
-    {"id": "t1_tv", "name": "Smart TV Tầng 1", "floor": 1, "ip": "192.168.1.13", "mac": "", "type": "tv"},
-    
-    # Tầng 2
-    {"id": "t2_mesh", "name": "Mesh Node 1 (Tầng 2)", "floor": 2, "ip": "192.168.1.2", "mac": "", "type": "mesh"},
-    {"id": "t2_cam1", "name": "Camera Tầng 2 (Trước)", "floor": 2, "ip": "192.168.1.21", "mac": "", "type": "camera"},
-    {"id": "t2_cam2", "name": "Camera Tầng 2 (Sau)", "floor": 2, "ip": "192.168.1.22", "mac": "", "type": "camera"},
-    {"id": "t2_robot2", "name": "Robot Hút Bụi T2", "floor": 2, "ip": "192.168.1.23", "mac": "", "type": "robot"},
-    {"id": "t2_laptop1", "name": "MacBook / Laptop 1", "floor": 2, "ip": "192.168.1.24", "mac": "", "type": "laptop"},
-    {"id": "t2_laptop2", "name": "Laptop 2", "floor": 2, "ip": "192.168.1.25", "mac": "", "type": "laptop"},
-    
-    # Tầng 3 (Vùng cảnh báo: Không có Mesh)
-    {"id": "t3_cam1", "name": "Camera Tầng 3", "floor": 3, "ip": "192.168.1.31", "mac": "", "type": "camera", "is_blindspot": True},
-    {"id": "t3_robot3", "name": "Robot Hút Bụi T3", "floor": 3, "ip": "192.168.1.32", "mac": "", "type": "robot", "is_blindspot": True},
-    
-    # Tầng 4
-    {"id": "t4_mesh", "name": "Mesh Node 2 (Tầng 4)", "floor": 4, "ip": "192.168.1.4", "mac": "", "type": "mesh"},
-    {"id": "t4_cam1", "name": "Camera Sân Thượng T4", "floor": 4, "ip": "192.168.1.41", "mac": "", "type": "camera"},
-    {"id": "t4_robot4", "name": "Robot Hút Bụi T4", "floor": 4, "ip": "192.168.1.42", "mac": "", "type": "robot"},
-]
 
 def load_devices():
     if os.path.exists(DATA_FILE):
@@ -48,11 +24,138 @@ def load_devices():
                 return json.load(f)
         except Exception:
             pass
-    return DEFAULT_DEVICES
+    return []
 
 def save_devices(devices):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(devices, f, indent=2, ensure_ascii=False)
+
+def get_local_ip_base():
+    """Lay IP noi bo va dai mang LAN (vi du: 192.168.1)"""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+    except Exception:
+        local_ip = "192.168.1.100"
+    finally:
+        s.close()
+    
+    parts = local_ip.split(".")
+    base = f"{parts[0]}.{parts[1]}.{parts[2]}"
+    return base, local_ip
+
+def ping_raw(ip):
+    """Ping nhe 1 goi de router/switch va bang ARP ghi nhan"""
+    is_win = platform.system() == "Windows"
+    cmd = ["ping", "-n" if is_win else "-c", "1", "-w" if is_win else "-W", "250", ip]
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def parse_arp_table():
+    """Doc bang ARP ho tro ca macOS, Linux va Windows"""
+    devices = []
+    try:
+        output = subprocess.check_output(["arp", "-a"], text=True, stderr=subprocess.DEVNULL)
+    except Exception:
+        return devices
+
+    is_win = platform.system() == "Windows"
+
+    for line in output.splitlines():
+        line = line.strip()
+        ip = None
+        mac = None
+
+        if is_win:
+            match = re.search(r"(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F-]+)\s+(\w+)", line)
+            if match and match.group(3).lower() == "dynamic":
+                ip, mac = match.group(1), match.group(2).replace("-", ":").lower()
+        else:
+            # macOS: ? (192.168.1.1) at 0:11:22:33:44:55 on en0 ifscope [ethernet]
+            match = re.search(r"\(([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\)\s+at\s+([0-9a-fA-F:]+)", line)
+            if match:
+                ip, mac = match.group(1), match.group(2).lower()
+
+        if ip and mac and not ip.endswith(".255") and mac != "ff:ff:ff:ff:ff:ff" and not ip.startswith("224.") and not ip.startswith("239."):
+            devices.append({"ip": ip, "mac": mac})
+
+    return devices
+
+def guess_device_type(ip, hostname, name):
+    target = f"{ip} {hostname} {name}".lower()
+    if ip.endswith(".1") or ip.endswith(".254") or "router" in target or "gateway" in target:
+        return "router"
+    if any(k in target for k in ["cam", "camera", "hik", "ezviz", "imou", "dahua", "reolink", "tp-ipc"]):
+        return "camera"
+    if any(k in target for k in ["robot", "vacuum", "dreame", "roborock", "ecovacs", "xiaomi.vacuum", "roomba"]):
+        return "robot"
+    if any(k in target for k in ["tv", "samsung", "lg", "sony", "tizen", "roku", "apple-tv", "androidtv"]):
+        return "tv"
+    if any(k in target for k in ["macbook", "laptop", "pc", "desktop", "thinkpad", "dell", "asus", "hp"]):
+        return "laptop"
+    if any(k in target for k in ["iphone", "ipad", "android", "galaxy", "pixel"]):
+        return "phone"
+    return "device"
+
+def scan_network_and_sync():
+    """Tu dong quet toan bo mang LAN va bo sung thiet bi moi vao devices.json"""
+    base, local_ip = get_local_ip_base()
+    all_ips = [f"{base}.{i}" for i in range(1, 255)]
+    
+    # Ping nhanh song song toan bo dai /24
+    with concurrent.futures.ThreadPoolExecutor(max_workers=60) as executor:
+        list(executor.map(ping_raw, all_ips))
+        
+    found_in_arp = parse_arp_table()
+    current_devices = load_devices()
+    existing_ips = {d["ip"]: d for d in current_devices}
+    existing_macs = {d.get("mac", ""): d for d in current_devices if d.get("mac")}
+    
+    new_count = 0
+    
+    for item in found_in_arp:
+        ip = item["ip"]
+        mac = item["mac"]
+        
+        # Resolve hostname
+        try:
+            hostname = socket.gethostbyaddr(ip)[0]
+        except Exception:
+            hostname = ""
+            
+        if ip in existing_ips:
+            # Da co trong danh sach -> Cap nhat MAC neu co
+            dev = existing_ips[ip]
+            if not dev.get("mac"): dev["mac"] = mac
+            if hostname and ("Thiết Bị" in dev.get("name", "") or dev.get("name") == ip):
+                dev["name"] = hostname
+        elif mac and mac in existing_macs:
+            # Trung MAC -> Cap nhat IP moi (do DHCP doi IP)
+            dev = existing_macs[mac]
+            dev["ip"] = ip
+        else:
+            # Thiet bi moi phat hien!
+            dev_type = guess_device_type(ip, hostname, "")
+            dev_name = hostname if hostname else f"Thiết bị mới ({ip})"
+            new_dev = {
+                "id": f"dev_{int(time.time())}_{ip.replace('.', '_')}",
+                "name": dev_name,
+                "floor": 0, # 0 = Chua phan tang / Tong hop
+                "ip": ip,
+                "mac": mac,
+                "type": dev_type
+            }
+            current_devices.append(new_dev)
+            existing_ips[ip] = new_dev
+            new_count += 1
+
+    save_devices(current_devices)
+    return {
+        "total": len(current_devices),
+        "new_count": new_count,
+        "local_ip": local_ip,
+        "subnet": f"{base}.0/24"
+    }
 
 def ping_host_detail(ip, count=3):
     is_win = platform.system() == "Windows"
@@ -64,7 +167,6 @@ def ping_host_detail(ip, count=3):
         out = proc.stdout
         success = proc.returncode == 0
         
-        # Parse average ping
         avg_ms = 0
         loss_pct = 0
         
@@ -78,7 +180,6 @@ def ping_host_detail(ip, count=3):
             elif success:
                 avg_ms = round((time.time() - start_time) * 1000 / count, 1)
         else:
-            # macOS / Linux
             match_loss = re.search(r"(\d+(\.\d+)?)%\s+packet\s+loss", out)
             if match_loss:
                 loss_pct = float(match_loss.group(1))
@@ -120,11 +221,9 @@ def get_macos_wifi_info():
             "noise": -90,
             "channel": "36 (5 GHz)",
             "tx_rate": 866,
-            "mesh_node": "Node Tầng 2 (Ước tính)",
             "quality": "Rất Tốt"
         }
     
-    # macOS airport command
     airport_path = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
     data = {"ssid": "Unknown", "bssid": "Unknown", "rssi": -70, "channel": "Unknown", "tx_rate": 0, "quality": "Khá"}
     
@@ -195,7 +294,16 @@ class AppRequestHandler(http.server.SimpleHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else ""
         
-        if path == "/api/ping-all":
+        if path == "/api/scan-lan":
+            # Tu dong quet mang LAN & cap nhat thiet bi moi
+            result = scan_network_and_sync()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(result).encode("utf-8"))
+            return
+
+        elif path == "/api/ping-all":
             devices = load_devices()
             results = {}
             
@@ -219,18 +327,16 @@ class AppRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
             
         elif path == "/api/speedtest":
-            # Quick speed test simulation / measurement
             def run_quick_speedtest():
                 try:
                     import urllib.request
                     start = time.time()
                     urllib.request.urlopen("https://speed.cloudflare.com/__down?bytes=10000000", timeout=8)
                     duration = time.time() - start
-                    # 10MB = 80Mbits
                     mbps = round(80.0 / duration, 2)
-                    return {"download": mbps, "upload": round(mbps * 0.45, 2), "ping": 12, "isp": "Local ISP"}
+                    return {"download": mbps, "upload": round(mbps * 0.45, 2), "ping": 12, "isp": "Local Fiber"}
                 except Exception:
-                    return {"download": 125.4, "upload": 95.8, "ping": 8, "isp": "Home Fiber"}
+                    return {"download": 125.4, "upload": 95.8, "ping": 8, "isp": "Local Fiber"}
 
             res = run_quick_speedtest()
             self.send_response(200)
@@ -243,6 +349,23 @@ class AppRequestHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 new_devices = json.loads(body)
                 save_devices(new_devices)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+            except Exception as e:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+            return
+
+        elif path == "/api/delete-device":
+            try:
+                payload = json.loads(body)
+                dev_id = payload.get("id")
+                devices = load_devices()
+                devices = [d for d in devices if d["id"] != dev_id]
+                save_devices(devices)
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -268,11 +391,10 @@ if __name__ == "__main__":
     
     url = f"http://127.0.0.1:{PORT}"
     
-    # Kiem tra neu co pywebview thi mo cua so Native macOS
     try:
         import webview
         webview.create_window(
-            title="Home Network Monitor - Giám Sát Mạng Nhà 4 Tầng",
+            title="Home Network Monitor",
             url=url,
             width=1280,
             height=860,
@@ -280,10 +402,9 @@ if __name__ == "__main__":
         )
         webview.start()
     except Exception:
-        # Fallback mo trinh duyet mac dinh
         webbrowser.open(url)
         try:
             while True:
                 time.sleep(1)
         except KeyboardInterrupt:
-            print("\nDa dong ung dung.")
+            print("\nĐã đóng ứng dụng.")

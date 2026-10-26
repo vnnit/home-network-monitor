@@ -1,46 +1,61 @@
-# Hệ Thống Giám Sát & Quản Lý Mạng Gia Đình (Home Network Monitor)
+# Home Network Monitor 🌐
 
-## 1. Phân Tích Hiện Trạng Nhà & Hạ Tầng Mạng
+Ứng dụng giám sát và kiểm tra sức khỏe hệ thống mạng gia đình / văn phòng cục bộ (Local Network Monitor & Speedtest). 
 
-- **Diện tích**: 75m² (5m x 15m), nhà ống 4 tầng.
-- **Vị trí thiết bị mạng**:
-  - Tầng 1: Router chính (Modem nhà mạng hoặc Router riêng)
-  - Tầng 2: Mesh Node 1
-  - Tầng 3: **Trống (Không có Node)**
-  - Tầng 4: Mesh Node 2
-- **Thiết bị kết nối**:
-  - Tầng 1: 1 Camera, 1 Robot hút bụi, 1 Smart TV
-  - Tầng 2: 2 Camera, 2 Laptop, 1 Robot hút bụi
-  - Tầng 3: 1 Camera, 1 Robot hút bụi (bắt sóng xuyên sàn từ T2 hoặc T4)
-  - Tầng 4: 1 Camera, 1 Robot hút bụi
-  - *Tổng cộng*: ~12 thiết bị cố định + điện thoại/tablet di động.
-
-### ⚠️ Điểm yếu vật lý cần lưu ý:
-1. **Tầng 3 là "vùng trũng" sóng**: Sàn bê tông cốt thép dày 10-15cm làm suy hao sóng 5GHz cực nặng (giảm 70-80%), sóng 2.4GHz xuyên qua được nhưng băng thông hẹp và dễ nghẽn khi robot/camera stream video.
-2. **Backhaul giữa Node tầng 2 và Node tầng 4**:
-   - Nếu **Mesh không dây (Wireless Backhaul)**: Node T4 phải bắt sóng của Node T2 qua 2 lớp sàn bê tông (sàn T3 và sàn T4). Tốc độ ở T4 sẽ bị suy giảm thê thảm (có thể chỉ còn 15-30% tốc độ gốc) và ping không ổn định.
-   - **Khuyến nghị**: Nên đi 1 dây LAN âm tường/nẹp ngoài từ Tầng 1 lên T2, T3, T4 (Ethernet Backhaul) để toàn mạng đạt tốc độ tối đa.
+Ứng dụng được thiết kế tối ưu cho **macOS (Apple Silicon M1/M2/M3)** và có thể chạy trên mọi nền tảng hỗ trợ Python / Docker.
 
 ---
 
-## 2. Giải Pháp: Có Cần Tự Làm Không Hay Dùng GitHub?
+## 🚀 Tính Năng Chính
 
-**👉 KHÔNG CẦN VIẾT TỪ SỐ 0!** Trên GitHub đã có sẵn các dự án mã nguồn mở (Self-hosted) cực kỳ hoàn thiện, đẹp mắt và chạy mượt trên Docker (Windows / Linux / Mini PC / Laptop cũ):
-
-| Nhu cầu | Tool GitHub khuyên dùng | Mục đích |
-|---|---|---|
-| **Đo tốc độ Internet tự động** | [alexjustesen/speedtest-tracker](https://github.com/alexjustesen/speedtest-tracker) | Tự động chạy Speedtest định kỳ (mỗi giờ/mỗi ngày), lưu lịch sử, vẽ biểu đồ Ping, Jitter, Download, Upload. |
-| **Theo dõi Camera & Robot online/offline** | [louislam/uptime-kuma](https://github.com/louislam/uptime-kuma) | Ping kiểm tra tình trạng từng Camera, Robot, TV, Mesh Node. Gửi cảnh báo ngay về Telegram/Zalo nếu Camera bị rớt mạng. |
-| **Quét toàn bộ thiết bị trong mạng (LAN Discovery)** | [netalertx/netalertx](https://github.com/netalertx/netalertx) | Tự động quét IP/MAC, lưu tên từng thiết bị, báo động khi có điện thoại lạ hoặc thiết bị lạ kết nối vào Wi-Fi. |
-| **Kiểm tra tốc độ nội bộ giữa các tầng** | `iPerf3` / [LibreSpeed](https://github.com/librespeed/speedtest) | Đo tốc độ thực tế từ Laptop tầng 3 tới Router tầng 1 để biết tầng 3 bị nghẽn sóng ở mức nào. |
-| **Quản lý bảo mật & Lưu lượng DNS** | [AdGuardHome](https://github.com/AdguardTeam/AdGuardHome) | Chặn quảng cáo toàn mạng, xem thiết bị nào (camera Tàu, robot) đang gửi dữ liệu lạ ra internet. |
+* 🔍 **Tự Động Quét Thiết Bị Mạng LAN (Auto Network Discovery)**:
+  * Tự động dò quét toàn bộ dải mạng LAN qua ARP và Ping sweep.
+  * Tự động phát hiện thiết bị mới kết nối vào Wi-Fi (Camera, Robot hút bụi, Smart TV, Laptop, Điện thoại...) mà không cần nhập tay.
+* ⚡ **Kiểm Tra Trạng Thái & Độ Trễ (Live Latency & Health Check)**:
+  * Ping đồng thời tất cả thiết bị trong mạng, đo độ trễ (latency ms) và tỷ lệ rớt gói tin (packet loss).
+  * Phát hiện ngay thiết bị nào đang bị chập chờn hoặc rớt mạng.
+* 📶 **Soi Sóng Wi-Fi MacBook (Wi-Fi Inspector)**:
+  * Đọc cường độ sóng Wi-Fi (RSSI dBm), kênh tần số (2.4GHz / 5GHz), BSSID và tốc độ kết nối (Tx Rate).
+  * Hữu ích khi di chuyển giữa các phòng / tầng để tìm điểm chết sóng Wi-Fi.
+* 🚀 **Đo Tốc Độ Internet Tích Hợp (1-Click Speedtest)**:
+  * Kiểm tra nhanh tốc độ Download, Upload và Ping thực tế của đường truyền.
+* 🔒 **Bảo Mật & Riêng Tư Tuyệt Đối**:
+  * 100% dữ liệu xử lý cục bộ trên máy, không gửi thông tin ra máy chủ ngoài.
 
 ---
 
-## 3. Cách Triển Khai Nhanh Bằng Docker Compose
+## 📥 Tải Về & Cài Đặt
 
-Chỉ cần cài Docker Desktop trên Windows (hoặc trên 1 máy tính để bàn/laptop luôn bật), sau đó chạy:
+### 1. Dành cho macOS (Apple Silicon M1/M2/M3)
+* Tải bản đóng gói sẵn tại mục [Releases](https://github.com/vnnit/home-network-monitor/releases).
+* Tải file `HomeNetworkMonitor-macOS-AppleSilicon.zip`, giải nén và mở file `HomeNetworkMonitor.app`.
+* *(Lưu ý lần đầu: Chuột phải vào app > chọn Open)*.
 
+### 2. Chạy Trực Tiếp Bằng Python
+Yêu cầu Python 3.9 trở lên:
+```bash
+# Clone source code
+git clone https://github.com/vnnit/home-network-monitor.git
+cd home-network-monitor
+
+# Cài đặt thư viện (nếu cần giao diện app cửa sổ native)
+pip install -r requirements.txt
+
+# Khởi chạy
+python app.py
+```
+App sẽ tự động mở giao diện Dashboard tại địa chỉ `http://127.0.0.1:8765`.
+
+### 3. Triển Khai Docker (Tùy Chọn Chạy 24/7 Trên Server/NAS)
+Nếu bạn muốn dựng server giám sát liên tục 24/7 trên Mini PC, NAS hoặc Docker:
 ```bash
 docker compose up -d
 ```
+
+---
+
+## 🛠️ Công Nghệ Sử Dụng
+
+* **Core**: Python (Standard Library HTTP Server, ARP Scanning, Multi-threading)
+* **Frontend**: HTML5, Tailwind CSS, FontAwesome, WebKit
+* **Build System**: GitHub Actions (Runner macOS-14 Apple Silicon)

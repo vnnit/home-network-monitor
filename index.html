@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Home Network Monitor - Giám Sát Mạng Gia Đình 4 Tầng</title>
+  <title>Home Network Monitor - Giám Sát Mạng Gia Đình & Văn Phòng</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -20,50 +20,55 @@
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 1rem;
     }
-    .pulse-online {
-      box-shadow: 0 0 12px rgba(34, 197, 94, 0.6);
-    }
-    .pulse-blindspot {
-      box-shadow: 0 0 14px rgba(245, 158, 11, 0.5);
-    }
   </style>
 </head>
 <body class="p-4 md:p-8">
 
   <!-- Header -->
   <header class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-800">
-    <div>
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
-          <i class="fa-solid fa-network-wired text-xl"></i>
-        </div>
-        <div>
-          <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            Home Network Monitor
-            <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/50">macOS M1 Edition</span>
-          </h1>
-          <p class="text-sm text-gray-400">Giám sát mạng nhà ống 75m² (5m x 15m) • 4 Tầng • 12 Thiết bị</p>
-        </div>
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+        <i class="fa-solid fa-network-wired text-xl"></i>
+      </div>
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          Home Network Monitor
+          <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/50">macOS Edition</span>
+        </h1>
+        <p class="text-sm text-gray-400">Giám sát thiết bị, kiểm tra độ trễ và đo tốc độ mạng nội bộ LAN</p>
       </div>
     </div>
 
     <!-- Quick Actions -->
-    <div class="flex items-center gap-3">
+    <div class="flex flex-wrap items-center gap-2 md:gap-3">
+      <button onclick="runAutoScan()" id="btn-scan" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/30">
+        <i class="fa-solid fa-magnifying-glass-arrow-right"></i>
+        <span>Quét Tự Động (Auto Scan)</span>
+      </button>
+
       <button onclick="runPingAll()" id="btn-ping" class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-all flex items-center gap-2 shadow-lg shadow-blue-600/30">
         <i class="fa-solid fa-satellite-dish"></i>
-        <span>Kiểm Tra Toàn Bộ</span>
+        <span>Ping Kiểm Tra</span>
       </button>
 
       <button onclick="runSpeedtest()" id="btn-speedtest" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/30">
         <i class="fa-solid fa-gauge-high"></i>
-        <span>Đo Tốc Độ (Speedtest)</span>
+        <span>Đo Tốc Độ</span>
       </button>
 
-      <button onclick="openConfigModal()" class="px-3 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium text-sm border border-gray-700">
-        <i class="fa-solid fa-gear"></i>
+      <button onclick="openConfigModal()" class="px-3 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium text-sm border border-gray-700" title="Cấu hình thiết bị">
+        <i class="fa-solid fa-sliders"></i>
       </button>
     </div>
   </header>
+
+  <!-- Notification Banner -->
+  <div id="scan-notify" class="max-w-7xl mx-auto mt-4 hidden">
+    <div class="p-3.5 rounded-xl bg-indigo-950/60 border border-indigo-700/60 text-indigo-200 text-sm flex items-center justify-between">
+      <span id="scan-notify-text" class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-indigo-400"></i> Đã quét xong mạng LAN.</span>
+      <button onclick="document.getElementById('scan-notify').classList.add('hidden')" class="text-indigo-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+  </div>
 
   <!-- Wi-Fi & Speedtest Quick Bar -->
   <section class="max-w-7xl mx-auto my-6 grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -74,7 +79,7 @@
           <i class="fa-solid fa-wifi"></i>
         </div>
         <div>
-          <div class="text-xs text-gray-400 font-medium uppercase tracking-wider">Wi-Fi MacBook Đang Kết Nối</div>
+          <div class="text-xs text-gray-400 font-medium uppercase tracking-wider">Wi-Fi Đang Kết Nối</div>
           <div class="text-lg font-bold text-white flex items-center gap-2" id="wifi-ssid">Đang đọc...</div>
           <div class="text-xs text-gray-400" id="wifi-details">Kênh: -- | BSSID: --</div>
         </div>
@@ -102,86 +107,42 @@
         <i class="fa-solid fa-arrow-up"></i>
       </div>
       <div>
-        <div class="text-xs text-gray-400 font-medium uppercase tracking-wider">Upload / Ping</div>
+        <div class="text-xs text-gray-400 font-medium uppercase tracking-wider">Upload</div>
         <div class="text-2xl font-black text-white" id="stat-upload">-- <span class="text-sm font-normal text-gray-400">Mbps</span></div>
       </div>
     </div>
   </section>
 
-  <!-- 4 Floors Dashboard -->
-  <main class="max-w-7xl mx-auto space-y-6">
-    
-    <!-- Floor 4 -->
-    <div class="glass-card p-5 border-l-4 border-l-purple-500">
-      <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-800/80">
-        <div class="flex items-center gap-3">
-          <span class="px-2.5 py-1 rounded-md bg-purple-500/20 text-purple-300 font-bold text-sm">TẦNG 4</span>
-          <span class="text-sm text-gray-300 font-medium">1 Mesh Node • 1 Camera Sân Thượng • 1 Robot</span>
-        </div>
-        <span class="text-xs text-gray-400" id="t4-summary">Đang chờ kiểm tra</span>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" id="floor-4-devices"></div>
-    </div>
-
-    <!-- Floor 3 (Blindspot Warning) -->
-    <div class="glass-card p-5 border-l-4 border-l-amber-500 bg-amber-950/10">
-      <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-800/80">
-        <div class="flex items-center gap-3">
-          <span class="px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 font-bold text-sm flex items-center gap-1.5">
-            <i class="fa-solid fa-triangle-exclamation"></i> TẦNG 3 (VÙNG TRŨNG SÓNG)
-          </span>
-          <span class="text-sm text-amber-200/80 font-medium">Không có Mesh Node • Bắt ké sóng xuyên sàn T2 / T4</span>
-        </div>
-        <span class="text-xs text-amber-300/80 font-medium">1 Camera • 1 Robot</span>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3" id="floor-3-devices"></div>
-    </div>
-
-    <!-- Floor 2 -->
-    <div class="glass-card p-5 border-l-4 border-l-blue-500">
-      <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-800/80">
-        <div class="flex items-center gap-3">
-          <span class="px-2.5 py-1 rounded-md bg-blue-500/20 text-blue-300 font-bold text-sm">TẦNG 2</span>
-          <span class="text-sm text-gray-300 font-medium">1 Mesh Node • 2 Camera • 2 Laptop • 1 Robot</span>
-        </div>
-        <span class="text-xs text-gray-400" id="t2-summary">Đang chờ kiểm tra</span>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" id="floor-2-devices"></div>
-    </div>
-
-    <!-- Floor 1 -->
-    <div class="glass-card p-5 border-l-4 border-l-emerald-500">
-      <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-800/80">
-        <div class="flex items-center gap-3">
-          <span class="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-bold text-sm">TẦNG 1</span>
-          <span class="text-sm text-gray-300 font-medium">Router Trung Tâm • 1 Camera • 1 Smart TV • 1 Robot</span>
-        </div>
-        <span class="text-xs text-gray-400" id="t1-summary">Đang chờ kiểm tra</span>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" id="floor-1-devices"></div>
-    </div>
-
+  <!-- Device Sections Container -->
+  <main class="max-w-7xl mx-auto space-y-6" id="device-sections">
+    <!-- Populated by JavaScript -->
   </main>
 
-  <!-- Modal Config IP -->
+  <!-- Modal Config IP & Floor -->
   <div id="config-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-    <div class="glass-card bg-gray-900 border border-gray-700 w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden">
+    <div class="glass-card bg-gray-900 border border-gray-700 w-full max-w-3xl max-h-[85vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden">
       <div class="p-5 border-b border-gray-800 flex items-center justify-between">
         <h3 class="text-lg font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-sliders text-blue-400"></i> Cấu Hình IP Thiết Bị Trong Nhà
+          <i class="fa-solid fa-sliders text-blue-400"></i> Quản Lý Danh Sách Thiết Bị
         </h3>
         <button onclick="closeConfigModal()" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="p-5 overflow-y-auto space-y-3 flex-1" id="config-list"></div>
-      <div class="p-4 border-t border-gray-800 flex justify-end gap-3 bg-gray-950/60">
-        <button onclick="closeConfigModal()" class="px-4 py-2 rounded-xl text-gray-300 hover:bg-gray-800 text-sm">Hủy</button>
-        <button onclick="saveConfigDevices()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm shadow-lg shadow-blue-600/30">Lưu Cấu Hình</button>
+      <div class="p-4 border-t border-gray-800 flex justify-between items-center bg-gray-950/60">
+        <button onclick="addNewManualDevice()" class="px-3.5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-medium border border-gray-700 flex items-center gap-1.5">
+          <i class="fa-solid fa-plus"></i> Thêm Thiết Bị Mới
+        </button>
+        <div class="flex gap-3">
+          <button onclick="closeConfigModal()" class="px-4 py-2 rounded-xl text-gray-300 hover:bg-gray-800 text-sm">Hủy</button>
+          <button onclick="saveConfigDevices()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm shadow-lg shadow-blue-600/30">Lưu Thay Đổi</button>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
     let devices = [];
+    let latestPingResults = {};
 
     const TYPE_ICONS = {
       router: 'fa-solid fa-network-wired text-blue-400',
@@ -189,7 +150,9 @@
       camera: 'fa-solid fa-video text-teal-400',
       robot: 'fa-solid fa-robot text-amber-400',
       tv: 'fa-solid fa-tv text-pink-400',
-      laptop: 'fa-solid fa-laptop text-indigo-400'
+      laptop: 'fa-solid fa-laptop text-indigo-400',
+      phone: 'fa-solid fa-mobile-screen text-sky-400',
+      device: 'fa-solid fa-microchip text-gray-400'
     };
 
     async function loadData() {
@@ -201,7 +164,7 @@
         devices = await devRes.json();
         const wifi = await wifiRes.json();
         
-        renderDevices();
+        renderSections();
         renderWifi(wifi);
       } catch (e) {
         console.error("Load error:", e);
@@ -215,17 +178,62 @@
       document.getElementById('wifi-rssi').innerText = `RSSI: ${wifi.rssi} dBm`;
     }
 
-    function renderDevices(pingResults = {}) {
-      const floors = { 1: [], 2: [], 3: [], 4: [] };
+    function renderSections() {
+      const container = document.getElementById('device-sections');
+      if (!devices || devices.length === 0) {
+        container.innerHTML = `
+          <div class="glass-card p-12 text-center">
+            <i class="fa-solid fa-radar text-4xl text-indigo-400 mb-3"></i>
+            <h3 class="text-lg font-bold text-white mb-1">Chưa có thiết bị nào trong danh sách</h3>
+            <p class="text-sm text-gray-400 mb-6">Bấm nút "Quét Tự Động" để ứng dụng tự dò tìm toàn bộ thiết bị đang kết nối Wi-Fi/LAN của bạn.</p>
+            <button onclick="runAutoScan()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30">
+              <i class="fa-solid fa-magnifying-glass-arrow-right mr-2"></i> Bắt Đầu Quét Mạng LAN Ngay
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      // Group devices by Floor (1, 2, 3, 4, or 0 for newly discovered/unassigned)
+      const groups = {};
       devices.forEach(d => {
-        if (floors[d.floor]) floors[d.floor].push(d);
+        const f = d.floor || 0;
+        if (!groups[f]) groups[f] = [];
+        groups[f].push(d);
       });
 
-      for (let f = 1; f <= 4; f++) {
-        const container = document.getElementById(`floor-${f}-devices`);
-        if (!container) continue;
-        container.innerHTML = floors[f].map(d => {
-          const res = pingResults[d.id] || null;
+      // Sort floor keys: 4, 3, 2, 1, then 0 (new)
+      const sortedFloors = Object.keys(groups).map(Number).sort((a, b) => {
+        if (a === 0) return 1;
+        if (b === 0) return -1;
+        return b - a;
+      });
+
+      container.innerHTML = sortedFloors.map(floor => {
+        const floorDevices = groups[floor];
+        let title = `TẦNG ${floor}`;
+        let borderColor = 'border-l-blue-500';
+        let badgeColor = 'bg-blue-500/20 text-blue-300';
+        let subtitle = `${floorDevices.length} thiết bị`;
+
+        if (floor === 0) {
+          title = 'MỚI PHÁT HIỆN / CHƯA PHÂN LOẠI';
+          borderColor = 'border-l-indigo-500';
+          badgeColor = 'bg-indigo-500/20 text-indigo-300';
+          subtitle = 'Tự động quét từ mạng LAN';
+        } else if (floor === 3) {
+          borderColor = 'border-l-amber-500';
+          badgeColor = 'bg-amber-500/20 text-amber-300';
+        } else if (floor === 4) {
+          borderColor = 'border-l-purple-500';
+          badgeColor = 'bg-purple-500/20 text-purple-300';
+        } else if (floor === 1) {
+          borderColor = 'border-l-emerald-500';
+          badgeColor = 'bg-emerald-500/20 text-emerald-300';
+        }
+
+        const cardsHtml = floorDevices.map(d => {
+          const res = latestPingResults[d.id] || null;
           let badge = `<span class="px-2 py-0.5 rounded text-xs bg-gray-800 text-gray-400">Chưa test</span>`;
           let latency = `-- ms`;
           let cardBorder = `border-gray-800`;
@@ -246,8 +254,7 @@
             }
           }
 
-          const iconClass = TYPE_ICONS[d.type] || 'fa-solid fa-microchip text-gray-400';
-          const blindspotAlert = d.is_blindspot ? `<span class="text-[10px] text-amber-400/90 ml-1 font-semibold">(Xuyên Sàn)</span>` : '';
+          const iconClass = TYPE_ICONS[d.type] || TYPE_ICONS.device;
 
           return `
             <div class="p-3.5 rounded-xl bg-gray-900/80 border ${cardBorder} flex items-center justify-between transition-all hover:bg-gray-850">
@@ -256,10 +263,8 @@
                   <i class="${iconClass}"></i>
                 </div>
                 <div class="truncate">
-                  <div class="text-sm font-semibold text-white truncate flex items-center">
-                    ${d.name} ${blindspotAlert}
-                  </div>
-                  <div class="text-xs text-gray-400 font-mono">${d.ip}</div>
+                  <div class="text-sm font-semibold text-white truncate">${d.name}</div>
+                  <div class="text-xs text-gray-400 font-mono">${d.ip} ${d.mac ? `• ${d.mac}` : ''}</div>
                 </div>
               </div>
               <div class="text-right shrink-0">
@@ -269,6 +274,51 @@
             </div>
           `;
         }).join('');
+
+        return `
+          <div class="glass-card p-5 border-l-4 ${borderColor}">
+            <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-800/80">
+              <div class="flex items-center gap-3">
+                <span class="px-2.5 py-1 rounded-md ${badgeColor} font-bold text-sm">${title}</span>
+                <span class="text-sm text-gray-400 font-medium">${subtitle}</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              ${cardsHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function runAutoScan() {
+      const btn = document.getElementById('btn-scan');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Đang quét ARP...</span>`;
+      
+      try {
+        const res = await fetch('/api/scan-lan', { method: 'POST' });
+        const data = await res.json();
+        
+        // Reload devices
+        const devRes = await fetch('/api/devices');
+        devices = await devRes.json();
+        renderSections();
+
+        const notify = document.getElementById('scan-notify');
+        document.getElementById('scan-notify-text').innerHTML = `
+          <i class="fa-solid fa-circle-check text-emerald-400"></i>
+          Quét xong dải <strong>${data.subnet}</strong>! Phát hiện tổng cộng <strong>${data.total}</strong> thiết bị (<strong>+${data.new_count}</strong> thiết bị mới).
+        `;
+        notify.classList.remove('hidden');
+
+        // Tu dong ping sau khi quet
+        runPingAll();
+      } catch (e) {
+        alert("Lỗi khi quét mạng: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-magnifying-glass-arrow-right"></i> <span>Quét Tự Động (Auto Scan)</span>`;
       }
     }
 
@@ -279,13 +329,13 @@
       
       try {
         const res = await fetch('/api/ping-all', { method: 'POST' });
-        const results = await res.json();
-        renderDevices(results);
+        latestPingResults = await res.json();
+        renderSections();
       } catch (e) {
-        alert("Lỗi khi ping thiết bị: " + e.message);
+        console.error("Ping error:", e);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `<i class="fa-solid fa-satellite-dish"></i> <span>Kiểm Tra Toàn Bộ</span>`;
+        btn.innerHTML = `<i class="fa-solid fa-satellite-dish"></i> <span>Ping Kiểm Tra</span>`;
       }
     }
 
@@ -303,23 +353,43 @@
         alert("Lỗi khi đo tốc độ: " + e.message);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `<i class="fa-solid fa-gauge-high"></i> <span>Đo Tốc Độ (Speedtest)</span>`;
+        btn.innerHTML = `<i class="fa-solid fa-gauge-high"></i> <span>Đo Tốc Độ</span>`;
       }
     }
 
     function openConfigModal() {
       const list = document.getElementById('config-list');
       list.innerHTML = devices.map((d, idx) => `
-        <div class="grid grid-cols-12 gap-2 items-center p-2 rounded-lg bg-gray-800/50 border border-gray-750 text-xs">
-          <div class="col-span-1 text-gray-400 font-bold">T${d.floor}</div>
-          <div class="col-span-5">
-            <input type="text" value="${d.name}" id="cfg-name-${idx}" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white">
+        <div class="grid grid-cols-12 gap-2 items-center p-2.5 rounded-lg bg-gray-800/50 border border-gray-750 text-xs">
+          <div class="col-span-2">
+            <select id="cfg-floor-${idx}" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white">
+              <option value="0" ${d.floor == 0 ? 'selected' : ''}>Chưa chọn</option>
+              <option value="1" ${d.floor == 1 ? 'selected' : ''}>Tầng 1</option>
+              <option value="2" ${d.floor == 2 ? 'selected' : ''}>Tầng 2</option>
+              <option value="3" ${d.floor == 3 ? 'selected' : ''}>Tầng 3</option>
+              <option value="4" ${d.floor == 4 ? 'selected' : ''}>Tầng 4</option>
+            </select>
           </div>
           <div class="col-span-4">
+            <input type="text" value="${d.name}" id="cfg-name-${idx}" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white">
+          </div>
+          <div class="col-span-3">
             <input type="text" value="${d.ip}" id="cfg-ip-${idx}" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white font-mono">
           </div>
-          <div class="col-span-2 text-right">
-            <span class="text-gray-400 uppercase text-[10px]">${d.type}</span>
+          <div class="col-span-2">
+            <select id="cfg-type-${idx}" class="w-full bg-gray-900 border border-gray-700 rounded px-1.5 py-1 text-white">
+              <option value="router" ${d.type == 'router' ? 'selected' : ''}>Router</option>
+              <option value="mesh" ${d.type == 'mesh' ? 'selected' : ''}>Mesh</option>
+              <option value="camera" ${d.type == 'camera' ? 'selected' : ''}>Camera</option>
+              <option value="robot" ${d.type == 'robot' ? 'selected' : ''}>Robot</option>
+              <option value="tv" ${d.type == 'tv' ? 'selected' : ''}>TV</option>
+              <option value="laptop" ${d.type == 'laptop' ? 'selected' : ''}>Laptop</option>
+              <option value="phone" ${d.type == 'phone' ? 'selected' : ''}>Phone</option>
+              <option value="device" ${d.type == 'device' ? 'selected' : ''}>Khác</option>
+            </select>
+          </div>
+          <div class="col-span-1 text-right">
+            <button onclick="deleteDevice('${d.id}')" class="text-rose-400 hover:text-rose-300 p-1"><i class="fa-solid fa-trash-can"></i></button>
           </div>
         </div>
       `).join('');
@@ -330,12 +400,41 @@
       document.getElementById('config-modal').classList.add('hidden');
     }
 
+    function addNewManualDevice() {
+      devices.push({
+        id: `dev_${Date.now()}`,
+        name: 'Thiết Bị Mới',
+        floor: 1,
+        ip: '192.168.1.50',
+        mac: '',
+        type: 'device'
+      });
+      openConfigModal();
+    }
+
+    async function deleteDevice(devId) {
+      if (!confirm("Xóa thiết bị này khỏi danh sách?")) return;
+      await fetch('/api/delete-device', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: devId })
+      });
+      devices = devices.filter(d => d.id !== devId);
+      openConfigModal();
+      renderSections();
+    }
+
     async function saveConfigDevices() {
       devices.forEach((d, idx) => {
+        const floorEl = document.getElementById(`cfg-floor-${idx}`);
         const nameEl = document.getElementById(`cfg-name-${idx}`);
         const ipEl = document.getElementById(`cfg-ip-${idx}`);
+        const typeEl = document.getElementById(`cfg-type-${idx}`);
+
+        if (floorEl) d.floor = parseInt(floorEl.value);
         if (nameEl) d.name = nameEl.value;
         if (ipEl) d.ip = ipEl.value;
+        if (typeEl) d.type = typeEl.value;
       });
 
       await fetch('/api/save-devices', {
@@ -344,7 +443,7 @@
         body: JSON.stringify(devices)
       });
       closeConfigModal();
-      renderDevices();
+      renderSections();
     }
 
     loadData();
