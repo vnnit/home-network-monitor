@@ -33,7 +33,8 @@
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
           Home Network Monitor
-          <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/50">macOS Edition</span>
+          <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/50" id="app-ver-badge">v1.4.0</span>
+          <span id="update-indicator" class="hidden"></span>
         </h1>
         <p class="text-sm text-gray-400">Giám sát thiết bị, kiểm tra độ trễ và đo tốc độ mạng nội bộ LAN</p>
       </div>
@@ -166,8 +167,53 @@
         
         renderSections();
         renderWifi(wifi);
+        checkAppUpdate();
       } catch (e) {
         console.error("Load error:", e);
+      }
+    }
+
+    async function checkAppUpdate() {
+      try {
+        const res = await fetch('/api/check-update');
+        const data = await res.json();
+        const indicator = document.getElementById('update-indicator');
+        
+        if (data.has_update) {
+          indicator.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer animate-pulse transition-all shadow-lg shadow-emerald-600/30";
+          indicator.innerHTML = `<i class="fa-solid fa-arrow-up-from-bracket"></i> Bản Mới ${data.latest_version} (Bấm Để Cập Nhật)`;
+          indicator.onclick = () => performAppUpdate(data.latest_version);
+          indicator.classList.remove('hidden');
+        } else if (data.current_version) {
+          document.getElementById('app-ver-badge').innerText = `v${data.current_version} (Mới nhất)`;
+        }
+      } catch (e) {
+        console.log("Check update skipped:", e);
+      }
+    }
+
+    async function performAppUpdate(latestVer) {
+      if (!confirm(`Tự động tải bản cập nhật ${latestVer} từ GitHub và cài đè vào máy?\n\nSau khi tải xong, ứng dụng sẽ tự động khởi động lại với phiên bản mới.`)) return;
+
+      const indicator = document.getElementById('update-indicator');
+      indicator.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-600 text-white text-xs font-semibold";
+      indicator.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang tải từ GitHub và tự cài đặt...`;
+      indicator.onclick = null;
+
+      try {
+        const res = await fetch('/api/perform-update', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          indicator.innerHTML = `<i class="fa-solid fa-check"></i> Đang khởi động lại app...`;
+          setTimeout(() => {
+            alert("Đã cập nhật xong! Ứng dụng đang khởi động lại...");
+          }, 1000);
+        } else {
+          throw new Error(data.error || "Lỗi cập nhật");
+        }
+      } catch (e) {
+        alert("Lỗi khi tự cập nhật: " + e.message);
+        indicator.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Lỗi cập nhật`;
       }
     }
 

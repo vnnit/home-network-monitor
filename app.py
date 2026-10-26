@@ -2,6 +2,7 @@ import http.server
 import socketserver
 import json
 import urllib.parse
+import urllib.request
 import os
 import sys
 import subprocess
@@ -13,8 +14,11 @@ import platform
 import webbrowser
 import shutil
 import concurrent.futures
+import zipfile
 
 PORT = 8765
+APP_VERSION = "1.4.0"
+GITHUB_REPO = "vnnit/home-network-monitor"
 BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
 
 def get_data_dir():
@@ -48,6 +52,103 @@ def save_devices(devices):
             json.dump(devices, f, indent=2, ensure_ascii=False)
     except Exception as e:
         print(f"[!] Error saving devices: {e}")
+
+def check_github_update():
+    """Kiem tra xem tren GitHub Releases co phien ban moi hon khong"""
+    try:
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+        req = urllib.request.Request(url, headers={"User-Agent": "HomeNetworkMonitor-App"})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            tag = data.get("tag_name", "").lstrip("v")
+            
+            def parse_ver(v_str):
+                return [int(x) for x in re.findall(r"\d+", v_str)]
+                
+            has_update = parse_ver(tag) > parse_ver(APP_VERSION)
+            
+            zip_asset = None
+            dmg_asset = None
+            for asset in data.get("assets", []):
+                name = asset.get("name", "")
+                if name.endswith(".zip"):
+                    zip_asset = asset.get("browser_download_url")
+                elif name.endswith(".dmg"):
+                    dmg_asset = asset.get("browser_download_url")
+                    
+            return {
+                "current_version": APP_VERSION,
+                "latest_version": data.get("tag_name"),
+                "has_update": has_update,
+                "release_name": data.get("name"),
+                "release_notes": data.get("body", ""),
+                "download_zip": zip_asset,
+                "download_dmg": dmg_asset
+            }
+    except Exception as e:
+        return {"current_version": APP_VERSION, "has_update": False, "error": str(e)}
+
+def perform_auto_update():
+    """Tu dong tai ban zip moi, giai nen de de len .app hien tai va khoi dong lai"""
+    info = check_github_update()
+    download_url = info.get("download_zip")
+    if not download_url:
+        raise Exception("Không tìm thấy gói cập nhật (.zip) trên GitHub Releases")
+        
+    temp_dir = os.path.join(get_data_dir(), "updates")
+    os.makedirs(temp_dir, exist_ok=True)
+    zip_path = os.path.join(temp_dir, "update.zip")
+    
+    # Tai file
+    req = urllib.request.Request(download_url, headers={"User-Agent": "HomeNetworkMonitor-App"})
+    with urllib.request.urlopen(req, timeout=30) as resp, open(zip_path, 'wb') as out_f:
+        out_f.write(resp.read())
+    
+    # Giai nen
+    extract_path = os.path.join(temp_dir, "extracted")
+    if os.path.exists(extract_path):
+        shutil.rmtree(extract_path, ignore_errors=True)
+    os.makedirs(extract_path, exist_ok=True)
+    
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall(extract_path)
+        
+    new_app_path = None
+    for root, dirs, files in os.walk(extract_path):
+        for d in dirs:
+            if d.endswith(".app"):
+                new_app_path = os.path.join(root, d)
+                break
+        if new_app_path:
+            break
+            
+    if not new_app_path:
+        raise Exception("Không tìm thấy bundle .app trong file zip cập nhật")
+        
+    exe_path = os.path.abspath(sys.executable)
+    if ".app/Contents/MacOS" in exe_path:
+        current_app = exe_path.split(".app/Contents/MacOS")[0] + ".app"
+    else:
+        current_app = "/Applications/HomeNetworkMonitor.app"
+        
+    script_path = os.path.join(temp_dir, "restart_update.sh")
+    with open(script_path, "w", encoding="utf-8") as f:
+        f.write(f"""#!/bin/bash
+sleep 1.5
+rm -rf "{current_app}"
+cp -R "{new_app_path}" "{current_app}"
+open "{current_app}"
+""")
+    os.chmod(script_path, 0o755)
+    
+    subprocess.Popen(["/bin/bash", script_path], close_fds=True)
+    
+    def kill_soon():
+        time.sleep(1)
+        os._exit(0)
+    threading.Thread(target=kill_soon).start()
+    
+    return {"success": True, "message": "Đang khởi động lại ứng dụng với phiên bản mới..."}
 
 def get_local_ip_base():
     """Lay IP noi bo va dai mang LAN (vi du: 192.168.1)"""
@@ -98,7 +199,6 @@ def parse_arp_table():
             if match and match.group(3).lower() == "dynamic":
                 ip, mac = match.group(1), match.group(2).replace("-", ":").lower()
         else:
-            # macOS: ? (192.168.1.1) at 0:11:22:33:44:55 on en0 ifscope [ethernet]
             match = re.search(r"\(([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\)\s+at\s+([0-9a-fA-F:]+)", line)
             if match:
                 ip, mac = match.group(1), match.group(2).lower()
@@ -129,7 +229,6 @@ def scan_network_and_sync():
     base, local_ip = get_local_ip_base()
     all_ips = [f"{base}.{i}" for i in range(1, 255)]
     
-    # Broadcast ping nhanh tren macOS de lam day bang ARP trong 0.5s
     if platform.system() == "Darwin":
         try:
             ping_bin = shutil.which("ping") or "/sbin/ping"
@@ -137,7 +236,6 @@ def scan_network_and_sync():
         except Exception:
             pass
             
-    # Quet socket touch song song
     with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
         list(executor.map(quick_touch_ip, all_ips))
         
@@ -148,7 +246,6 @@ def scan_network_and_sync():
     
     new_count = 0
     
-    # Dat timeout ngan cho DNS de khong bao gio bi treo request
     orig_timeout = socket.getdefaulttimeout()
     socket.setdefaulttimeout(0.15)
     
@@ -317,6 +414,14 @@ class AppRequestHandler(http.server.SimpleHTTPRequestHandler):
                 info = get_macos_wifi_info()
                 self.wfile.write(json.dumps(info).encode("utf-8"))
                 return
+                
+            elif path == "/api/check-update":
+                info = check_github_update()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(info).encode("utf-8"))
+                return
         except Exception as e:
             self.send_response(500)
             self.send_header("Content-Type", "application/json")
@@ -336,6 +441,14 @@ class AppRequestHandler(http.server.SimpleHTTPRequestHandler):
         try:
             if path == "/api/scan-lan":
                 result = scan_network_and_sync()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(result).encode("utf-8"))
+                return
+
+            elif path == "/api/perform-update":
+                result = perform_auto_update()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -422,7 +535,7 @@ if __name__ == "__main__":
     try:
         import webview
         webview.create_window(
-            title="Home Network Monitor",
+            title=f"Home Network Monitor v{APP_VERSION}",
             url=url,
             width=1280,
             height=860,
