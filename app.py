@@ -17,7 +17,7 @@ import concurrent.futures
 import zipfile
 
 PORT = 8765
-APP_VERSION = "1.4.1"
+APP_VERSION = "1.4.2"
 GITHUB_REPO = "vnnit/home-network-monitor"
 BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
 

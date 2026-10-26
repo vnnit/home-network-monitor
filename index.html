@@ -33,7 +33,7 @@
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
           Home Network Monitor
-          <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/50" id="app-ver-badge">v1.4.0</span>
+          <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/50" id="app-ver-badge">v1.4.2</span>
           <span id="update-indicator" class="hidden"></span>
         </h1>
         <p class="text-sm text-gray-400">Giám sát thiết bị, kiểm tra độ trễ và đo tốc độ mạng nội bộ LAN</p>
@@ -377,9 +377,6 @@
         alert("Lỗi khi quét mạng: " + e.message);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `<i class="fa-solid fa-magnifying-glass-arrow-right"></i> <span>Quét Tự Động (Auto Scan)</span>`;
-      }
-    }
         btn.innerHTML = `<i class="fa-solid fa-magnifying-glass-arrow-right"></i> <span>Quét Tự Động (Auto Scan)</span>`;
       }
     }
