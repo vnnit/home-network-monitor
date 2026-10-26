@@ -33,14 +33,25 @@ jobs:
           --add-data "devices.json:." \
           app.py
 
-    - name: Compress .app bundle
+    - name: Create macOS DMG Installer
       run: |
+        mkdir -p dist/dmg_staging
+        cp -R "dist/HomeNetworkMonitor.app" "dist/dmg_staging/"
+        ln -s /Applications "dist/dmg_staging/Applications"
+        hdiutil create -volname "Home Network Monitor" -srcfolder "dist/dmg_staging" -ov -format UDZO "dist/HomeNetworkMonitor-macOS-AppleSilicon.dmg"
         cd dist
         ditto -c -k --sequesterRsrc --keepParent "HomeNetworkMonitor.app" "HomeNetworkMonitor-macOS-AppleSilicon.zip"
 
-    - name: Upload Build Artifact (Mac M1)
+    - name: Upload DMG Artifact (Mac M1)
       uses: actions/upload-artifact@v4
       with:
-        name: HomeNetworkMonitor-Mac-M1
+        name: HomeNetworkMonitor-DMG
+        path: dist/HomeNetworkMonitor-macOS-AppleSilicon.dmg
+        retention-days: 14
+
+    - name: Upload ZIP Artifact (Mac M1)
+      uses: actions/upload-artifact@v4
+      with:
+        name: HomeNetworkMonitor-ZIP
         path: dist/HomeNetworkMonitor-macOS-AppleSilicon.zip
         retention-days: 14

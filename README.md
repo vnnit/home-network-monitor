@@ -2,7 +2,7 @@
 
 Ứng dụng giám sát và kiểm tra sức khỏe hệ thống mạng gia đình / văn phòng cục bộ (Local Network Monitor & Speedtest). 
 
-Ứng dụng được thiết kế tối ưu cho **macOS (Apple Silicon M1/M2/M3)** và có thể chạy trên mọi nền tảng hỗ trợ Python / Docker.
+Ứng dụng được thiết kế tối ưu cho **macOS (Apple Silicon M1/M2/M3)** dưới dạng gói cài đặt chuẩn **`.dmg`**, đồng thời có thể chạy trên mọi nền tảng hỗ trợ Python / Docker.
 
 ---
 
@@ -26,9 +26,10 @@
 
 ## 📥 Tải Về & Cài Đặt
 
-### 1. Dành cho macOS (Apple Silicon M1/M2/M3)
-* Tải bản đóng gói sẵn tại mục [Releases](https://github.com/vnnit/home-network-monitor/releases).
-* Tải file `HomeNetworkMonitor-macOS-AppleSilicon.zip`, giải nén và mở file `HomeNetworkMonitor.app`.
+### 1. Dành cho macOS (Apple Silicon M1/M2/M3) - File Chuẩn `.dmg`
+* Tải file cài đặt **`.dmg`** tại mục [Releases](https://github.com/vnnit/home-network-monitor/releases).
+* Mở file **`HomeNetworkMonitor-macOS-AppleSilicon.dmg`**, kéo thả biểu tượng ứng dụng vào thư mục **Applications**.
+* Mở app từ Launchpad hoặc Spotlight bất cứ khi nào bạn cần kiểm tra mạng!
 * *(Lưu ý lần đầu: Chuột phải vào app > chọn Open)*.
 
 ### 2. Chạy Trực Tiếp Bằng Python
@@ -58,4 +59,4 @@ docker compose up -d
 
 * **Core**: Python (Standard Library HTTP Server, ARP Scanning, Multi-threading)
 * **Frontend**: HTML5, Tailwind CSS, FontAwesome, WebKit
-* **Build System**: GitHub Actions (Runner macOS-14 Apple Silicon)
+* **Build System**: GitHub Actions (Runner macOS-14 Apple Silicon -> Auto Build `.dmg` & `.zip`)
