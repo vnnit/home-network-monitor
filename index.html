@@ -298,6 +298,10 @@
       
       try {
         const res = await fetch('/api/scan-lan', { method: 'POST' });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Lỗi máy chủ (${res.status})`);
+        }
         const data = await res.json();
         
         // Reload devices
@@ -318,6 +322,9 @@
         alert("Lỗi khi quét mạng: " + e.message);
       } finally {
         btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-magnifying-glass-arrow-right"></i> <span>Quét Tự Động (Auto Scan)</span>`;
+      }
+    }
         btn.innerHTML = `<i class="fa-solid fa-magnifying-glass-arrow-right"></i> <span>Quét Tự Động (Auto Scan)</span>`;
       }
     }
