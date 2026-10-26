@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+dist/
+build/
+*.spec
+.venv/
+venv/
+.env
+
+# Data
+uptime-kuma-data/
+speedtest-data/

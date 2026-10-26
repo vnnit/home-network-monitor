@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home Network Monitor - Giám Sát Mạng Gia Đình 4 Tầng</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: radial-gradient(circle at top right, #111827, #030712);
+      min-height: 100vh;
+      color: #f3f4f6;
+    }
+    .glass-card {
+      background: rgba(17, 24, 39, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 1rem;
+    }
+    .pulse-online {
+      box-shadow: 0 0 12px rgba(34, 197, 94, 0.6);
+    }
+    .pulse-blindspot {
+      box-shadow: 0 0 14px rgba(245, 158, 11, 0.5);
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+
+  <!-- Header -->
+  <header class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-800">
+    <div>
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+          <i class="fa-solid fa-network-wired text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            Home Network Monitor
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/50">macOS M1 Edition</span>
+          </h1>
+          <p class="text-sm text-gray-400">Giám sát mạng nhà ống 75m² (5m x 15m) • 4 Tầng • 12 Thiết bị</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="flex items-center gap-3">
+      <button onclick="runPingAll()" id="btn-ping" class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-all flex items-center gap-2 shadow-lg shadow-blue-600/30">
+        <i class="fa-solid fa-satellite-dish"></i>
+        <span>Kiểm Tra Toàn Bộ</span>
+      </button>
+
+      <button onclick="runSpeedtest()" id="btn-speedtest" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/30">
+        <i class="fa-solid fa-gauge-high"></i>
+        <span>Đo Tốc Độ (Speedtest)</span>
+      </button>
+
+      <button onclick="openConfigModal()" class="px-3 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium text-sm border border-gray-700">
+        <i class="fa-solid fa-gear"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Wi-Fi & Speedtest Quick Bar -->
+  <section class="max-w-7xl mx-auto my-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+    <!-- Wi-Fi Inspector -->
+    <div class="glass-card p-4 md:col-span-2 flex items-center justify-between">
+      <div class="flex items-center gap-3.5">
+        <div class="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xl border border-indigo-500/20">
+          <i class="fa-solid fa-wifi"></i>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 font-medium uppercase tracking-wider">Wi-Fi MacBook Đang Kết Nối</div>
+          <div class="text-lg font-bold text-white flex items-center gap-2" id="wifi-ssid">Đang đọc...</div>
+          <div class="text-xs text-gray-400" id="wifi-details">Kênh: -- | BSSID: --</div>
+        </div>
+      </div>
+      <div class="text-right">
+        <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 font-semibold" id="wifi-quality">Đang đo</span>
+        <div class="text-xs text-gray-400 mt-1" id="wifi-rssi">RSSI: -- dBm</div>
+      </div>
+    </div>
+
+    <!-- Speedtest Download -->
+    <div class="glass-card p-4 flex items-center gap-3.5">
+      <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl border border-emerald-500/20">
+        <i class="fa-solid fa-arrow-down"></i>
+      </div>
+      <div>
+        <div class="text-xs text-gray-400 font-medium uppercase tracking-wider">Download</div>
+        <div class="text-2xl font-black text-white" id="stat-download">-- <span class="text-sm font-normal text-gray-400">Mbps</span></div>
+      </div>
+    </div>
+
+    <!-- Speedtest Upload & Ping -->
+    <div class="glass-card p-4 flex items-center gap-3.5">
+      <div class="w-12 h-12 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-xl border border-cyan-500/20">
+        <i class="fa-solid fa-arrow-up"></i>
+      </div>
+      <div>
+        <div class="text-xs text-gray-400 font-medium uppercase tracking-wider">Upload / Ping</div>
+        <div class="text-2xl font-black text-white" id="stat-upload">-- <span class="text-sm font-normal text-gray-400">Mbps</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 Floors Dashboard -->
+  <main class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- Floor 4 -->
+    <div class="glass-card p-5 border-l-4 border-l-purple-500">
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-800/80">
+        <div class="flex items-center gap-3">
+          <span class="px-2.5 py-1 rounded-md bg-purple-500/20 text-purple-300 font-bold text-sm">TẦNG 4</span>
+          <span class="text-sm text-gray-300 font-medium">1 Mesh Node • 1 Camera Sân Thượng • 1 Robot</span>
+        </div>
+        <span class="text-xs text-gray-400" id="t4-summary">Đang chờ kiểm tra</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" id="floor-4-devices"></div>
+    </div>
+
+    <!-- Floor 3 (Blindspot Warning) -->
+    <div class="glass-card p-5 border-l-4 border-l-amber-500 bg-amber-950/10">
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-800/80">
+        <div class="flex items-center gap-3">
+          <span class="px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 font-bold text-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-triangle-exclamation"></i> TẦNG 3 (VÙNG TRŨNG SÓNG)
+          </span>
+          <span class="text-sm text-amber-200/80 font-medium">Không có Mesh Node • Bắt ké sóng xuyên sàn T2 / T4</span>
+        </div>
+        <span class="text-xs text-amber-300/80 font-medium">1 Camera • 1 Robot</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3" id="floor-3-devices"></div>
+    </div>
+
+    <!-- Floor 2 -->
+    <div class="glass-card p-5 border-l-4 border-l-blue-500">
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-800/80">
+        <div class="flex items-center gap-3">
+          <span class="px-2.5 py-1 rounded-md bg-blue-500/20 text-blue-300 font-bold text-sm">TẦNG 2</span>
+          <span class="text-sm text-gray-300 font-medium">1 Mesh Node • 2 Camera • 2 Laptop • 1 Robot</span>
+        </div>
+        <span class="text-xs text-gray-400" id="t2-summary">Đang chờ kiểm tra</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" id="floor-2-devices"></div>
+    </div>
+
+    <!-- Floor 1 -->
+    <div class="glass-card p-5 border-l-4 border-l-emerald-500">
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-800/80">
+        <div class="flex items-center gap-3">
+          <span class="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-bold text-sm">TẦNG 1</span>
+          <span class="text-sm text-gray-300 font-medium">Router Trung Tâm • 1 Camera • 1 Smart TV • 1 Robot</span>
+        </div>
+        <span class="text-xs text-gray-400" id="t1-summary">Đang chờ kiểm tra</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" id="floor-1-devices"></div>
+    </div>
+
+  </main>
+
+  <!-- Modal Config IP -->
+  <div id="config-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="glass-card bg-gray-900 border border-gray-700 w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden">
+      <div class="p-5 border-b border-gray-800 flex items-center justify-between">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-blue-400"></i> Cấu Hình IP Thiết Bị Trong Nhà
+        </h3>
+        <button onclick="closeConfigModal()" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-5 overflow-y-auto space-y-3 flex-1" id="config-list"></div>
+      <div class="p-4 border-t border-gray-800 flex justify-end gap-3 bg-gray-950/60">
+        <button onclick="closeConfigModal()" class="px-4 py-2 rounded-xl text-gray-300 hover:bg-gray-800 text-sm">Hủy</button>
+        <button onclick="saveConfigDevices()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm shadow-lg shadow-blue-600/30">Lưu Cấu Hình</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let devices = [];
+
+    const TYPE_ICONS = {
+      router: 'fa-solid fa-network-wired text-blue-400',
+      mesh: 'fa-solid fa-tower-broadcast text-purple-400',
+      camera: 'fa-solid fa-video text-teal-400',
+      robot: 'fa-solid fa-robot text-amber-400',
+      tv: 'fa-solid fa-tv text-pink-400',
+      laptop: 'fa-solid fa-laptop text-indigo-400'
+    };
+
+    async function loadData() {
+      try {
+        const [devRes, wifiRes] = await Promise.all([
+          fetch('/api/devices'),
+          fetch('/api/wifi-info')
+        ]);
+        devices = await devRes.json();
+        const wifi = await wifiRes.json();
+        
+        renderDevices();
+        renderWifi(wifi);
+      } catch (e) {
+        console.error("Load error:", e);
+      }
+    }
+
+    function renderWifi(wifi) {
+      document.getElementById('wifi-ssid').innerText = wifi.ssid || 'Chưa kết nối';
+      document.getElementById('wifi-details').innerText = `Kênh: ${wifi.channel} | BSSID: ${wifi.bssid}`;
+      document.getElementById('wifi-quality').innerText = wifi.quality || 'Tốt';
+      document.getElementById('wifi-rssi').innerText = `RSSI: ${wifi.rssi} dBm`;
+    }
+
+    function renderDevices(pingResults = {}) {
+      const floors = { 1: [], 2: [], 3: [], 4: [] };
+      devices.forEach(d => {
+        if (floors[d.floor]) floors[d.floor].push(d);
+      });
+
+      for (let f = 1; f <= 4; f++) {
+        const container = document.getElementById(`floor-${f}-devices`);
+        if (!container) continue;
+        container.innerHTML = floors[f].map(d => {
+          const res = pingResults[d.id] || null;
+          let badge = `<span class="px-2 py-0.5 rounded text-xs bg-gray-800 text-gray-400">Chưa test</span>`;
+          let latency = `-- ms`;
+          let cardBorder = `border-gray-800`;
+
+          if (res) {
+            if (res.status === 'online') {
+              badge = `<span class="px-2 py-0.5 rounded text-xs bg-emerald-950 text-emerald-300 border border-emerald-800 font-semibold">Online</span>`;
+              latency = `${res.latency} ms`;
+              cardBorder = `border-emerald-500/40`;
+            } else if (res.status === 'unstable') {
+              badge = `<span class="px-2 py-0.5 rounded text-xs bg-amber-950 text-amber-300 border border-amber-800 font-semibold">Chập chờn</span>`;
+              latency = `${res.latency} ms (${res.loss}% loss)`;
+              cardBorder = `border-amber-500/40`;
+            } else {
+              badge = `<span class="px-2 py-0.5 rounded text-xs bg-rose-950 text-rose-300 border border-rose-800 font-semibold">Mất mạng</span>`;
+              latency = `Timeout`;
+              cardBorder = `border-rose-500/40`;
+            }
+          }
+
+          const iconClass = TYPE_ICONS[d.type] || 'fa-solid fa-microchip text-gray-400';
+          const blindspotAlert = d.is_blindspot ? `<span class="text-[10px] text-amber-400/90 ml-1 font-semibold">(Xuyên Sàn)</span>` : '';
+
+          return `
+            <div class="p-3.5 rounded-xl bg-gray-900/80 border ${cardBorder} flex items-center justify-between transition-all hover:bg-gray-850">
+              <div class="flex items-center gap-3 overflow-hidden">
+                <div class="w-9 h-9 rounded-lg bg-gray-800/80 flex items-center justify-center text-sm shrink-0">
+                  <i class="${iconClass}"></i>
+                </div>
+                <div class="truncate">
+                  <div class="text-sm font-semibold text-white truncate flex items-center">
+                    ${d.name} ${blindspotAlert}
+                  </div>
+                  <div class="text-xs text-gray-400 font-mono">${d.ip}</div>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                ${badge}
+                <div class="text-xs font-mono text-gray-400 mt-1">${latency}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    async function runPingAll() {
+      const btn = document.getElementById('btn-ping');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Đang Ping...</span>`;
+      
+      try {
+        const res = await fetch('/api/ping-all', { method: 'POST' });
+        const results = await res.json();
+        renderDevices(results);
+      } catch (e) {
+        alert("Lỗi khi ping thiết bị: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-satellite-dish"></i> <span>Kiểm Tra Toàn Bộ</span>`;
+      }
+    }
+
+    async function runSpeedtest() {
+      const btn = document.getElementById('btn-speedtest');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Đang đo...</span>`;
+      
+      try {
+        const res = await fetch('/api/speedtest', { method: 'POST' });
+        const data = await res.json();
+        document.getElementById('stat-download').innerHTML = `${data.download} <span class="text-sm font-normal text-gray-400">Mbps</span>`;
+        document.getElementById('stat-upload').innerHTML = `${data.upload} <span class="text-sm font-normal text-gray-400">Mbps</span>`;
+      } catch (e) {
+        alert("Lỗi khi đo tốc độ: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-gauge-high"></i> <span>Đo Tốc Độ (Speedtest)</span>`;
+      }
+    }
+
+    function openConfigModal() {
+      const list = document.getElementById('config-list');
+      list.innerHTML = devices.map((d, idx) => `
+        <div class="grid grid-cols-12 gap-2 items-center p-2 rounded-lg bg-gray-800/50 border border-gray-750 text-xs">
+          <div class="col-span-1 text-gray-400 font-bold">T${d.floor}</div>
+          <div class="col-span-5">
+            <input type="text" value="${d.name}" id="cfg-name-${idx}" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white">
+          </div>
+          <div class="col-span-4">
+            <input type="text" value="${d.ip}" id="cfg-ip-${idx}" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white font-mono">
+          </div>
+          <div class="col-span-2 text-right">
+            <span class="text-gray-400 uppercase text-[10px]">${d.type}</span>
+          </div>
+        </div>
+      `).join('');
+      document.getElementById('config-modal').classList.remove('hidden');
+    }
+
+    function closeConfigModal() {
+      document.getElementById('config-modal').classList.add('hidden');
+    }
+
+    async function saveConfigDevices() {
+      devices.forEach((d, idx) => {
+        const nameEl = document.getElementById(`cfg-name-${idx}`);
+        const ipEl = document.getElementById(`cfg-ip-${idx}`);
+        if (nameEl) d.name = nameEl.value;
+        if (ipEl) d.ip = ipEl.value;
+      });
+
+      await fetch('/api/save-devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(devices)
+      });
+      closeConfigModal();
+      renderDevices();
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

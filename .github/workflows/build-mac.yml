@@ -1,0 +1,46 @@
+name: Build Mac M1 (Apple Silicon) App
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-14 # macOS 14 runs natively on Apple Silicon (M1 / ARM64)
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller pywebview
+
+    - name: Build macOS .app with PyInstaller
+      run: |
+        pyinstaller --noconfirm --onedir --windowed \
+          --name "HomeNetworkMonitor" \
+          --add-data "index.html:." \
+          --add-data "devices.json:." \
+          app.py
+
+    - name: Compress .app bundle
+      run: |
+        cd dist
+        ditto -c -k --sequesterRsrc --keepParent "HomeNetworkMonitor.app" "HomeNetworkMonitor-macOS-AppleSilicon.zip"
+
+    - name: Upload Build Artifact (Mac M1)
+      uses: actions/upload-artifact@v4
+      with:
+        name: HomeNetworkMonitor-Mac-M1
+        path: dist/HomeNetworkMonitor-macOS-AppleSilicon.zip
+        retention-days: 14

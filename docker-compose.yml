@@ -1,0 +1,34 @@
+services:
+  # 1. Uptime Kuma: Giám sát tình trạng sống/chết của từng Camera, Robot, TV, Mesh Node
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./uptime-kuma-data:/app/data
+
+  # 2. Speedtest Tracker: Tự động đo tốc độ mạng Internet (Ookla) theo lịch trình
+  speedtest-tracker:
+    image: ghcr.io/alexjustesen/speedtest-tracker:latest
+    container_name: speedtest-tracker
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - APP_KEY=base64:7A1bX3NqP8ZkLM9qT1wVxY6zR0sDu2eF4ghJ5kLm7No=
+      - APP_TIMEZONE=Asia/Ho_Chi_Minh
+      - SPEEDTEST_SCHEDULE=0 * * * * # Chạy speedtest mỗi tiếng 1 lần
+    volumes:
+      - ./speedtest-data:/config
+
+  # 3. LibreSpeed: Trạm đo tốc độ mạng nội bộ giữa các tầng (không tốn băng thông internet)
+  librespeed:
+    image: ghcr.io/librespeed/speedtest:latest
+    container_name: librespeed
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      - TITLE=Kiem tra toc do mang noi bo (Noi bo giua cac tang)
