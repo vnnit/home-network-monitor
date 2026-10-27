@@ -33,7 +33,7 @@
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
           Home Network Monitor
-          <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/50" id="app-ver-badge">v1.4.2</span>
+          <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/50" id="app-ver-badge">v1.5.0</span>
           <span id="update-indicator" class="hidden"></span>
         </h1>
         <p class="text-sm text-gray-400">Giám sát thiết bị, kiểm tra độ trễ và đo tốc độ mạng nội bộ LAN</p>
@@ -42,6 +42,11 @@
 
     <!-- Quick Actions -->
     <div class="flex flex-wrap items-center gap-2 md:gap-3">
+      <button onclick="openWifiOptimizerModal()" class="px-3.5 py-2.5 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 font-medium text-sm transition-all flex items-center gap-2 border border-amber-500/30 shadow-lg shadow-amber-600/20">
+        <i class="fa-solid fa-screwdriver-wrench"></i>
+        <span>Tối Ưu Modem / Wi-Fi</span>
+      </button>
+
       <button onclick="runAutoScan()" id="btn-scan" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/30">
         <i class="fa-solid fa-magnifying-glass-arrow-right"></i>
         <span>Quét Tự Động (Auto Scan)</span>
@@ -141,9 +146,88 @@
     </div>
   </div>
 
+  <!-- Modal Wifi Optimizer & Modem Settings -->
+  <div id="wifi-optimizer-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="glass-card bg-gray-900 border border-gray-700 w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden">
+      <div class="p-5 border-b border-gray-800 flex items-center justify-between bg-gray-950/40">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2.5">
+          <span class="p-1.5 rounded-lg bg-amber-500/20 text-amber-400"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+          Tối Ưu Sóng Wi-Fi & Cấu Hình Modem FPT
+        </h3>
+        <button onclick="closeWifiOptimizerModal()" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-5 flex-1 text-sm text-gray-300">
+        
+        <!-- Truy cap nhanh Modem -->
+        <div class="p-4 rounded-xl bg-blue-950/30 border border-blue-800/40">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-server text-blue-400"></i> Trang Quản Trị Modem FPT
+            </span>
+            <span class="text-xs px-2 py-0.5 rounded bg-blue-900/50 text-blue-300 font-mono">192.168.1.1</span>
+          </div>
+          <p class="text-xs text-gray-400 mb-3">Tài khoản mặc định: <code class="text-blue-300">admin</code> | Mật khẩu: <span class="text-gray-300">Xem ở tem dưới đáy cục modem hoặc trong app Hi FPT</span>.</p>
+          <a href="http://192.168.1.1" target="_blank" class="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-600/30">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Mở Trang Quản Trị Modem (192.168.1.1)
+          </a>
+        </div>
+
+        <!-- 3 huong dan quan trong -->
+        <div class="space-y-3.5">
+          <h4 class="font-bold text-white uppercase text-xs tracking-wider text-gray-400">3 Cách Khắc Phục Chập Chờn & Tối Ưu Giếng Trời</h4>
+
+          <div class="p-4 rounded-xl bg-gray-800/40 border border-gray-750">
+            <div class="font-semibold text-amber-300 flex items-center gap-2 mb-1.5">
+              <i class="fa-solid fa-tower-broadcast"></i> 1. Đổi Kênh 5GHz (Tránh xung đột giếng trời)
+            </div>
+            <p class="text-xs text-gray-300 leading-relaxed">
+              Vì Modem và Mesh nằm thẳng hàng giếng trời, chế độ Kênh tự động (Auto Channel) rất dễ làm 2 cục phát trùng tần số và tự triệt tiêu sóng nhau.<br>
+              👉 <strong>Cách làm:</strong> Vào trang quản trị modem > <strong>Wireless 5GHz</strong> > Đổi kênh từ <em>Auto</em> sang cố định <strong>Kênh 36, 40 hoặc 149</strong>. Chỉnh độ rộng băng thông (Channel Width) về <strong>80MHz</strong> để sóng xuyên tầng khỏe và ổn định hơn.
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-gray-800/40 border border-gray-750">
+            <div class="font-semibold text-emerald-300 flex items-center gap-2 mb-1.5">
+              <i class="fa-solid fa-arrows-spin"></i> 2. Chỉnh Góc Đặt Cục Mesh (Tránh vùng mù đỉnh anten)
+            </div>
+            <p class="text-xs text-gray-300 leading-relaxed">
+              Sóng anten phát theo hình bánh Donut (mạnh theo chiều ngang, yếu nhất ở đỉnh đầu và đáy). Đặt thẳng tưng từ T1 lên T4 làm các node chĩa đỉnh đầu vào nhau.<br>
+              👉 <strong>Cách làm:</strong> Đặt cục Mesh ở tầng trên hơi nghiêng 15-30 độ hoặc đặt lệch ra khỏi trục giếng trời khoảng 1 mét để sóng phát quét dọc cầu thang.
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-gray-800/40 border border-gray-750">
+            <div class="font-semibold text-cyan-300 flex items-center gap-2 mb-1.5">
+              <i class="fa-solid fa-video"></i> 3. Tách Riêng Sóng 2.4GHz Cho Camera & Robot
+            </div>
+            <p class="text-xs text-gray-300 leading-relaxed">
+              Tính năng "Gộp 1 tên Wi-Fi" (Band Steering) hay ép Camera và Robot nhảy lung tung giữa 2.4G và 5G làm rớt gói.<br>
+              👉 <strong>Cách làm:</strong> Bật thêm 1 tên Wi-Fi phụ (Guest Wi-Fi hoặc SSID phụ) chỉ phát 2.4GHz (VD: <em>NhaToi_IoT_2.4G</em>) dành riêng cho 5 Camera và 4 Robot hút bụi.
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="p-4 border-t border-gray-800 flex justify-end bg-gray-950/60">
+        <button onclick="closeWifiOptimizerModal()" class="px-5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-medium text-sm">Đóng</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let devices = [];
     let latestPingResults = {};
+
+    function openWifiOptimizerModal() {
+      document.getElementById('wifi-optimizer-modal').classList.remove('hidden');
+    }
+
+    function closeWifiOptimizerModal() {
+      document.getElementById('wifi-optimizer-modal').classList.add('hidden');
+    }
 
     const TYPE_ICONS = {
       router: 'fa-solid fa-network-wired text-blue-400',

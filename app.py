@@ -17,7 +17,7 @@ import concurrent.futures
 import zipfile
 
 PORT = 8765
-APP_VERSION = "1.4.2"
+APP_VERSION = "1.5.0"
 GITHUB_REPO = "vnnit/home-network-monitor"
 BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
 
@@ -202,9 +202,11 @@ def parse_arp_table():
 
 def guess_device_type(ip, hostname, name):
     target = f"{ip} {hostname} {name}".lower()
-    if ip.endswith(".1") or ip.endswith(".254") or "router" in target or "gateway" in target:
+    if ip.endswith(".1") or ip.endswith(".254") or "router" in target or "gateway" in target or "net.fpt" in target:
         return "router"
-    if any(k in target for k in ["cam", "camera", "hik", "ezviz", "imou", "dahua", "reolink", "tp-ipc"]):
+    if any(k in target for k in ["ap-ax", "mesh", "accesspoint", "repeater"]):
+        return "mesh"
+    if any(k in target for k in ["cam", "camera", "hik", "ezviz", "imou", "dahua", "reolink", "tp-ipc", "ipc"]):
         return "camera"
     if any(k in target for k in ["robot", "vacuum", "dreame", "roborock", "ecovacs", "xiaomi.vacuum", "roomba"]):
         return "robot"
@@ -280,14 +282,15 @@ def scan_network_and_sync():
         "subnet": f"{base}.0/24"
     }
 
-def ping_host_detail(ip, count=2):
+def ping_host_detail(ip, count=3):
+    """Ping 3 goi: thong minh bo qua drop danh thuc thiet bi ngu dong"""
     is_win = platform.system() == "Windows"
     ping_bin = shutil.which("ping") or ("/sbin/ping" if platform.system() == "Darwin" else "ping")
-    cmd = [ping_bin, "-n" if is_win else "-c", str(count), "-w" if is_win else "-t", "1", ip]
+    cmd = [ping_bin, "-n" if is_win else "-c", str(count), "-w" if is_win else "-t", "2", ip]
     
     start_time = time.time()
     try:
-        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=1.5)
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=2.5)
         out = proc.stdout
         success = proc.returncode == 0
         
@@ -307,9 +310,15 @@ def ping_host_detail(ip, count=2):
             if match_rtt: avg_ms = float(match_rtt.group(1))
             elif success: avg_ms = round((time.time() - start_time) * 1000 / count, 1)
                 
+        # Xu ly thong minh: Neu chi drop 1 goi dau do thiet bi ngu dong va ping < 40ms -> van la Online tot
         status = "offline"
         if loss_pct < 100 and success:
-            status = "online" if loss_pct == 0 and avg_ms < 60 else "unstable"
+            if loss_pct <= 34 and avg_ms < 60:
+                status = "online"
+            elif loss_pct <= 50 and avg_ms < 25:
+                status = "online"  # Thiet bi IoT tra loi nhanh sau khi thuc day
+            else:
+                status = "unstable"
             
         return {
             "ip": ip,
@@ -339,7 +348,6 @@ def get_macos_wifi_info():
             "quality": "Rất Tốt"
         }
     
-    # Tren macOS thu lay bang networksetup (nhanh nhat & khong bi hang)
     data = {"ssid": "Wi-Fi Connected", "bssid": "--", "rssi": -62, "channel": "--", "quality": "Tốt"}
     try:
         res = subprocess.run(["networksetup", "-getairportnetwork", "en0"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=1)
@@ -387,6 +395,17 @@ class AppRequestHandler(http.server.SimpleHTTPRequestHandler):
             elif path == "/api/wifi-info":
                 info = get_macos_wifi_info()
                 self.send_json(info)
+                return
+
+            elif path == "/api/gateway-info":
+                base, local_ip = get_local_ip_base()
+                gateway_ip = f"{base}.1"
+                self.send_json({
+                    "gateway_ip": gateway_ip,
+                    "local_ip": local_ip,
+                    "subnet": f"{base}.0/24",
+                    "admin_url": f"http://{gateway_ip}"
+                })
                 return
                 
             elif path == "/api/check-update":
@@ -469,7 +488,6 @@ class AppRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json({"error": str(e)}, 500)
 
 def run_server():
-    # Su dung ThreadingHTTPServer de phuc vu da luong dong thoi, khong bao gio bi treo keep-alive
     server = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), AppRequestHandler)
     server.daemon_threads = True
     print(f"[*] Threading server running on: http://127.0.0.1:{PORT}")
